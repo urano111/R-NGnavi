@@ -1,0 +1,271 @@
+<title>プランシート AIナビ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap">
+<style>
+/* Layout: one narrow working column; a row of plan-sheet item chips, then one item card at a time. */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --ink:#1c2331; --muted:#5a6375; --line:#dce1e9;
+  --accent:#d9531f; --accent-ink:#ffffff; --accent-soft:#fbe7dd;
+  --memo:#ffe873; --memo-ink:#2b2500; --ok:#1f7a4d; --ok-soft:#dff3e8;
+  --f-display:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --f-prompt:"BIZ UDGothic","Hiragino Kaku Gothic ProN","Yu Gothic",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141b; --surface:#1a1f29; --ink:#e8ebf1; --muted:#9ca5b5; --line:#2d3441;
+    --accent:#ff7a48; --accent-ink:#1a0d06; --accent-soft:#3a2219;
+    --memo:#e4c93a; --memo-ink:#1c1800; --ok:#5fd39a; --ok-soft:#163326;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141b; --surface:#1a1f29; --ink:#e8ebf1; --muted:#9ca5b5; --line:#2d3441;
+  --accent:#ff7a48; --accent-ink:#1a0d06; --accent-soft:#3a2219;
+  --memo:#e4c93a; --memo-ink:#1c1800; --ok:#5fd39a; --ok-soft:#163326;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.75}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--f-display);font-weight:900;font-size:clamp(1.6rem,4.5vw,2.1rem);line-height:1.3;margin:0;letter-spacing:.02em;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted)}
+.how{display:flex;flex-wrap:wrap;gap:8px 18px;margin:12px 0 0;padding:0;list-style:none;font-size:.92rem}
+.how li{display:flex;gap:6px;align-items:baseline}
+.how b{font-family:var(--f-display);color:var(--accent)}
+
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:700 .95rem/1 var(--f-display);min-width:44px;height:40px;padding:0 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums}
+.chip small.tag{font:700 .68rem/1 var(--f-body);padding:3px 6px;border-radius:999px;border:1px solid currentColor;opacity:.85}
+.chip small.tag:not(.must){color:var(--accent);border-color:var(--accent);border-width:1.5px;opacity:1}
+.how b.rec{font:700 .78rem/1 var(--f-body);color:var(--accent);border:1.5px solid var(--accent);border-radius:999px;padding:2px 7px;margin:0 2px}
+.chip small.tag.must{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);opacity:1}
+.chip[aria-current="step"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.done:not([aria-current="step"]){border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}
+.chip:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px clamp(16px,4vw,28px);display:flex;flex-direction:column;gap:22px}
+.card-head{display:flex;gap:14px;align-items:flex-start}
+.num{font:900 1.9rem/1 var(--f-display);color:var(--accent);min-width:2.2em;font-variant-numeric:tabular-nums}
+.card-head h2{margin:0;font:900 1.35rem/1.35 var(--f-display);text-wrap:balance}
+.card-head p{margin:2px 0 0;color:var(--muted)}
+
+.block{display:flex;flex-direction:column;gap:10px;min-width:0}
+.label{font:700 .8rem/1 var(--f-display);letter-spacing:.12em;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:700}
+.field small{color:var(--muted)}
+textarea,input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
+textarea{min-height:5.5em}
+textarea::placeholder,input::placeholder{color:var(--muted);opacity:.8}
+
+.prompt{font-family:var(--f-prompt);font-size:.98rem;line-height:1.9;background:var(--bg);border:1.5px dashed var(--line);border-radius:10px;padding:14px 16px;white-space:pre-wrap;word-break:break-word;max-height:22em;overflow:auto}
+.prompt mark{background:var(--memo);color:var(--memo-ink);padding:1px 4px;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.prompt .slot{color:var(--accent);font-weight:700}
+.legend{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
+.legend mark{background:var(--memo);color:var(--memo-ink);padding:0 4px;border-radius:3px}
+.legend .slot{color:var(--accent);font-weight:700}
+
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:700 1rem/1 var(--f-display);border:0;border-radius:10px;padding:13px 20px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.hint{font-size:.9rem;color:var(--accent);font-weight:700}
+
+.look{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.look li{padding:10px 14px;border-radius:10px;background:var(--accent-soft)}
+.look li::before{content:"？";font:900 1rem var(--f-display);color:var(--accent);margin-right:6px}
+.guide li::before{content:"・"}
+.after{display:flex;flex-direction:column;gap:6px;font-size:.95rem;color:var(--muted)}
+.check{display:flex;gap:10px;align-items:center;font-weight:700;cursor:pointer;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px}
+.check input{width:22px;height:22px;accent-color:var(--ok)}
+.kata{font-family:var(--f-prompt);background:var(--surface);border:2px solid var(--ink);border-radius:10px;padding:12px 16px;line-height:1.9}
+.kata-note{color:var(--muted)}
+.noai{background:var(--memo);color:var(--memo-ink);border-radius:10px;padding:12px 14px;font-weight:700}
+
+.pager{display:flex;justify-content:space-between;gap:10px}
+.tip{font-size:.92rem;color:var(--muted);border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:8px}
+.tip code{font-family:var(--f-prompt);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>プランシート AIナビ</h1>
+    <p>プランシートを1欄ずつ、Geminiと一緒に考えます。</p>
+    <ol class="how">
+      <li><b>1</b>「はじめ」「2」「作戦会議」は全班</li>
+      <li><b>2</b>あとは聞きたい欄を選んでGeminiに聞く。<b class="rec">おすすめ</b>の6と7・8は、聞きたい欄が終わったら必ず聞く</li>
+      <li><b>3</b>答えと小切手のコメントを見て、型で書く</li>
+    </ol>
+  </header>
+
+  <nav aria-label="プランシートの欄"><div class="chips" id="chips"></div></nav>
+
+  <main class="card" id="card" aria-live="polite"></main>
+
+  <div class="tip">
+    <div><b>チームで1つのチャットを最後まで使います。</b>新しいチャットを開くと、AIがプランの中身を忘れてしまいます。</div>
+    <div>AIがプランシートの文章を書いてきたら、<code id="stopText">文章は書かないで、ヒントだけください</code> と送りましょう。 <button class="btn ghost" id="copyStop" type="button" style="padding:8px 12px;font-size:.85rem">この一文をコピー</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const IDEA = {key:'idea', label:'私たちのサービスのアイデア（1〜2文）', type:'textarea', ph:'例）左利きの小学生向けに、使いやすい文房具を集めて届けるサービス', note:'「はじめ」で書いたものと同じです。直したら全部の欄に反映されます。'};
+
+const STEPS = [
+  {no:'はじめ', title:'はじめのプロンプト', q:'最初に1回だけ送ります', sheet:null,
+   fields:[
+     {key:'s10title', label:'STEP10のタイトル', type:'text', ph:'例）レフティー'},
+     {key:'s10sum', label:'STEP10のサマリー（なくてもOK）', type:'textarea', optional:true, ph:'例）左利きの小学生とその親の「道具が使いにくい」を解決したい。レフティーというサービスは、…', note:'打つのが大変なら空けたままでOK。A3を写真に撮って、Geminiに一緒に送っても大丈夫です。'},
+     {...IDEA, note:'このあとの欄で何度も使います。'}
+   ],
+   tpl:'これから、高校生のビジネスプランコンテスト「高校生Ring」に出すプランを、プランシートの欄ごとに考えます。私たちのプランは次のとおりです。\nタイトル：{s10title}\nサマリー：{s10sum}\nサービスのアイデア：{idea}\nこれからいくつか質問します。答えは高校生にもわかる言葉で、具体的な例を入れて、箇条書きでお願いします。プランシートの文章は私たちが自分で書くので、代わりに書かないでください。',
+   look:['AIから返事が来たら、「2」へ進みましょう。']},
+  {no:'2', title:'顧客ターゲット', q:'誰にサービスを届けたい？', sheet:'2', tag:'必ず',
+   pre:'Ring NOTEのSTEP06（P35）で書いた「ターゲット情報」と「顧客ターゲット（まとめ）」を見ながら書こう。AIが「もっと具体的にするための質問」をしてくれます。その質問を見ながら、プランシートに何を書くかを話し合おう。',
+   fields:[
+     {key:'target6', label:'STEP06のターゲット情報と、顧客ターゲット（まとめ）', type:'textarea', ph:'例）16歳、高校生。家族は父・母・弟（みんな右利き）。マンション住まい。おこづかい月3,000円。趣味は絵を描くこと。友達はみんな右利きで、周りに左利きの人は少ない。\nまとめ：幼児〜10代の左利き。文房具を使うたびに「なんで左利き用じゃないんだろう」と感じている。',
+      note:'全部打たなくても、要点（年齢・家族・ふだんの様子）だけでOK。Ring NOTEのページを写真に撮って一緒に送ってもOK。実在の人を思い浮かべたときは、本名や学校名など、その人だとわかる情報は書かないでください。'}
+   ],
+   tpl:'私たちが考えている顧客ターゲットは、次のとおりです。\n{target6}\nこのターゲットをもっと具体的にするために、足りない情報を質問してください。質問は5つまでにしてください。',
+   look:['AIの質問に、班で答えられる？ 答えられたことは、プランシートに書く材料になります。（AIに答えを送る必要はありません）','答えられない質問は、まだ分かっていないこと。当てはまる実在の人がいれば、その人に聞いてみよう。','このターゲットに当てはまる、身の回りの実在の人はいる？','プランシートの2欄を書いたら、次は「作戦会議」へ。'],
+   kata:'ターゲットは、〇〇である。特に、△△をターゲットとする。具体的なユーザー像は、〜である。'},
+  {no:'作戦', title:'作戦会議', q:'今のプランの良いところと、直すとよいところを知る', sheet:null, tag:'必ず', fields:[],
+   tpl:'これまでの会話をふまえて、私たちのアイデアの良いところを4つ、発展のために考慮すべきことを1つ、コメントしてください。考慮すべきことは、プランシートのどの欄（1きっかけ、2顧客ターゲット、3顧客課題、4提供価値、5解決策、6競合ビジネス、7かかるお金、8もらうお金、9サマリー、10タイトル）に関係するかも書いてください。',
+   look:['「考慮すべきこと」が関係する欄から、聞いてみよう。','小切手のコメントで「あと〇〇があれば」が多かった欄も候補。','書こうとすると手が止まる欄、Ring NOTEに書いた内容が少ない欄も候補。','聞きたい欄が終わったら、「おすすめ」の6と7・8を必ず聞こう。']},
+  {no:'1', title:'きっかけ', q:'このプランを考えたきっかけのできごとや思い', sheet:'1', noAI:true, noAImsg:'この欄はAIを使いません。自分たちの体験や思いだから、自分たちにしか書けない欄です。',
+   kata:'（いつ・どこで）〇〇という経験をした。そのとき、〜と感じた。もっと〜だったらいいのにと思った。',
+   guide:['いつ、どこで、どんなことがあった？','そのとき、どう感じた？','「もっとこうだったらいいのに」と思ったことは？']},
+  {no:'3', title:'顧客課題', q:'その人は何に困っている？', sheet:'3',
+   fields:[],
+   tpl:'先ほどのターゲットが困っていることをあげてください。',
+   look:['自分たちが考えた課題は入っている？','入っていないもので「確かに」と思うものはある？ 実際に聞いた声や自分の体験と合う？','この中から、いちばん大きな困りごとを1つ選ぼう。次の「4」で使います。'],
+   kata:'大きな課題は、〇〇ことである。具体的には、（いつ・どこで）〜という場面で困っている。'},
+  {no:'4', title:'提供価値', q:'どんなことがうれしいと感じる？', sheet:'4',
+   fields:[{key:'pain', label:'いちばん大きな困りごと（3を聞いた班はAIの答えから、聞いていない班はプランシートの3欄から）', type:'textarea', ph:'例）横書きのノートに書くと、左手が書いたばかりの文字の上を通って、手もノートも真っ黒になる'}],
+   tpl:'以下のようなターゲットユーザーが求めるもっとも重要な要素（あるいは機能）は何ですか？\n先ほどのターゲット。いちばん困っていること：{pain}',
+   look:['ターゲットがいちばん求めているものと、自分たちが届けたい「うれしいこと」は合っている？'],
+   kata:'このサービスを使うと、（ターゲット）は〇〇できるようになる。これまでの△△（困りごと）が、〜に変わる。'},
+  {no:'5', title:'解決策', q:'どんなサービスだと解決できる？', sheet:'5', fields:[IDEA],
+   tpl:'{idea}\n先にあげたアイデアを具体的なプランに発展させるために、6W3Hのすべての要素を具体的に述べてください。6W3Hの各要素は以下です。\nWhat（何を）：アイデアの内容や目的を明確にする。\nWhy（なぜ）：アイデアの背景や理由、価値を明確にする。\nWho（誰が）：アイデアの対象者や関係者を明確にする。\nWhom（誰と）：アイデアの協力者やパートナーを明確にする。\nWhere（どこで）：アイデアの場所や範囲を明確にする。\nWhen（いつ）：アイデアのタイミングや期間を明確にする。\nHow（どうやって）：アイデアの方法や手段を明確にする。\nHow much（いくらで）：アイデアのコストや収益を明確にする。\nHow many（どれだけ）：アイデアの数量や規模を明確にする。',
+   look:['自分たちがまだ決めていなかったこと（いつ・どこで・いくら・誰と組む など）はどれ？','AIの答えをそのまま使わず、そこを自分たちで決めて書こう。'],
+   kata:'課題解決のために、〇〇を提供する。実現するために、〜（誰と組むか・何を用意するか）。サービスの流れは、①〜 ②〜 ③〜'},
+  {no:'6', title:'競合ビジネス', q:'同じサービスがすでにない？', sheet:'6', tag:'おすすめ', fields:[IDEA],
+   tpl:'{idea}\nこのアイデアと類似性の高いアイデアがすでにないか調べています。すでにある類似したものを5つ書き出してください。類似度合いの高さを1〜10点で示してください。その理由も示してください。実在するものだけを挙げ、わかれば公式サイトも示してください。',
+   look:['STEP09のライバル調査で見つけたものと同じ？ 新しく出てきたものはある？','いちばん似ているもののリンクを1つ開いて、本当にあるか確かめよう。','自分たちとのちがいを、一言で言える？'],
+   kata:'似ているサービスには〇〇がある。私たちのサービスは、〜という点でちがう。'},
+  {no:'7・8', title:'かかるお金・もらうお金', q:'誰に払う？ 誰からもらう？', sheet:'7と8', tag:'おすすめ', fields:[IDEA],
+   tpl:'{idea}というアイデアについて、リーンキャンバスの要素のうち「収益の流れ」と「コスト構造」を、「誰から」「誰に」がわかるように考えてください。\n・私たちにお金を払ってくれるのは誰か。どんな形で払ってもらうか（買ってもらう、毎月払ってもらう、広告を出してもらう など）\n・私たちがお金を払う相手は誰か。何のために払うか\nサービスを使う人とお金を払う人が違う場合は、分けて書いてください。',
+   look:['お金を払ってくれるのは、サービスを使う人と同じ？ 違う？（使う人は子ども、お金を出すのは親、のように分かれることがあります）','その人は、なぜお金を払ってくれるの？ その人にとっての「うれしい」は何？（Ring NOTE P45 Win-Win-Win）','私たちがお金を払う相手は誰？ 作ってくれる人、仕入れ先、届けてくれる人…','8欄は「誰から・どんな形で」、7欄は「誰に・何のために」を書こう。'],
+   kata:'7欄：このビジネスプランは、〇〇（誰）に、△△（何のため）のお金を支払う。\n8欄：このビジネスプランは、〇〇（誰）から、△△（商品代・月額料金・広告料など）として収益を得る。'},
+  {no:'9', title:'サマリー', q:'まとめると一言で、どんなサービス？', sheet:'9', fields:[],
+   tpl:'これまでの会話をふまえて、私たちのアイデアの良いところを4つ、発展のために考慮すべきことを1つ、コメントしてください。',
+   look:['作戦会議のときの答えとくらべよう。「考慮すべきこと」は変わった？','AIが挙げた「良いところ」は、自分たちがいちばん伝えたいことと同じ？','「考慮すべきこと」1つを、サマリーに入れる？ 入れないなら、その理由をチームで言える？','第1回のSTEP10とくらべて、どこが変わった？'],
+   kata:'（ターゲット）の（困りごと）を解決したい。（サービス名）は、（解決策）を通して、（ターゲット）に（うれしいこと）を届ける。成功のポイントは〇〇だと考える。'},
+  {no:'10', title:'タイトル', q:'タイトルをつけるなら？（35字以内）', sheet:'10', fields:[],
+   tpl:'このアイデアを「アイデアのタイトル1行」および「アイデアの詳細内容3行」という形式で記述してください。誰向けの、何で、狙いは何かが、なんとなくわかるようにしてください。方向性を大きく変えて3パターン書いてください。',
+   look:['3つの案を参考に、35字以内で自分たちで決めよう。','読んだ人が「誰向けの、何のサービスか」を想像できる？'],
+   kata:'〇〇な人のための、△△というサービス'}
+];
+
+const KEY = 'ring-plan-navi-v1';
+let state = {values:{}, done:{}, current:0};
+try{ const s = JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s==='object'){ state = {...state, ...s, values:{...(s.values||{})}, done:{...(s.done||{})}}; } }catch(e){}
+if(!(state.current>=0 && state.current<STEPS.length)) state.current = 0;
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+const $ = s => document.querySelector(s);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fieldLabel = k => { for(const st of STEPS){ for(const f of (st.fields||[])){ if(f.key===k) return f.label; } } return k; };
+
+function slotsOf(tpl){ return [...tpl.matchAll(/\{(\w+)\}/g)].map(m=>m[1]); }
+const isOpt = k => { for(const st of STEPS){ for(const f of (st.fields||[])){ if(f.key===k) return !!f.optional; } } return false; };
+function tplLines(st){ return st.tpl.split('\n').filter(line=>{ const ks=slotsOf(line); return !(ks.length && ks.every(k=>isOpt(k) && !(state.values[k]||'').trim())); }).join('\n'); }
+function promptText(st){ return tplLines(st).replace(/\{(\w+)\}/g,(_,k)=> (state.values[k]||'').trim() || `〈　${fieldLabel(k)}　〉`); }
+function promptHTML(st){
+  return tplLines(st).split(/(\{\w+\})/).map(part=>{
+    const m = part.match(/^\{(\w+)\}$/);
+    if(!m) return esc(part);
+    const v = (state.values[m[1]]||'').trim();
+    return v ? `<mark>${esc(v)}</mark>` : `<span class="slot">〈　${esc(fieldLabel(m[1]))}　〉</span>`;
+  }).join('');
+}
+function missing(st){ return slotsOf(st.tpl||'').filter(k=>!isOpt(k) && !(state.values[k]||'').trim()); }
+
+function renderChips(){
+  $('#chips').innerHTML = STEPS.map((st,i)=>`<button class="chip" type="button" data-i="${i}" ${i===state.current?'aria-current="step"':''} aria-label="${esc(st.no)} ${esc(st.title)}${st.tag?'（'+esc(st.tag)+'）':''}">${esc(st.no)}${st.tag?`<small class="tag${st.tag==='必ず'?' must':''}">${esc(st.tag)}</small>`:''}</button>`).join('');
+}
+
+function renderCard(){
+  const i = state.current, st = STEPS[i];
+  let h = `<div class="card-head"><div class="num">${esc(st.no)}</div><div><h2>${esc(st.title)}</h2><p>${esc(st.q)}</p></div></div>`;
+  if(st.noAI){
+    h += `<div class="noai">${esc(st.noAImsg||'この欄はAIを使いません。')}</div>
+      <div class="block"><span class="label">話し合ってみよう</span><ul class="look guide">${st.guide.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>`;
+  } else {
+    if(st.pre) h += `<p style="margin:0">${esc(st.pre)}</p>`;
+    if(st.fields.length){
+      h += `<div class="block"><span class="label">1　〈　〉を埋める</span>` + st.fields.map(f=>{
+        const id = `f-${f.key}`; const v = esc(state.values[f.key]||'');
+        const ctl = f.type==='textarea' ? `<textarea id="${id}" data-key="${f.key}" placeholder="${esc(f.ph)}">${v}</textarea>` : `<input type="text" id="${id}" data-key="${f.key}" placeholder="${esc(f.ph)}" value="${v}">`;
+        return `<div class="field"><label for="${id}">${esc(f.label)}</label>${ctl}${f.note?`<small>${esc(f.note)}</small>`:''}</div>`;
+      }).join('') + `</div>`;
+    }
+    h += `<div class="block"><span class="label">${st.fields.length?'2':'1'}　できたプロンプトをコピーして、Geminiに送る</span>
+      <div class="prompt" id="prompt">${promptHTML(st)}</div>
+      <div class="legend"><span><mark>黄色</mark>＝自分たちが入れたことば</span><span><span class="slot">〈　〉</span>＝まだ空いているところ</span></div>
+      <div class="row"><button class="btn" id="copy" type="button">プロンプトをコピー</button><span class="hint" id="miss"></span></div></div>`;
+    h += `<div class="block"><span class="label">${st.fields.length?'3':'2'}　答えを読んだら、チームで考える</span><ul class="look">${st.look.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>`;
+  }
+  if(st.sheet){
+    h += `<div class="after"><span>封筒の付箋に、この欄に関係するものはある？</span><span>${st.noAI?'':'AIの答えと'}付箋を見て、プランシートの<b>${esc(st.sheet)}欄</b>に自分たちの言葉で書きましょう。</span></div>`;
+  }
+  if(st.kata){
+    h += `<div class="block"><span class="label">プランシートに書く「型」</span><div class="kata">${esc(st.kata).replace(/\n/g,'<br>')}</div><small class="kata-note">〇〇や（　）に、自分たちの言葉を入れよう。字数は「以内」なので、全部うめなくて大丈夫。</small></div>`;
+  }
+  h += `<div class="pager"><button class="btn ghost" type="button" id="prev" ${i===0?'disabled':''}>← 前の欄</button><button class="btn ghost" type="button" id="next" ${i===STEPS.length-1?'disabled':''}>${st.sheet?'書けたら次の欄へ →':'次の欄へ →'}</button></div>`;
+  $('#card').innerHTML = h;
+  updateMiss();
+}
+
+function updateMiss(){
+  const st = STEPS[state.current]; if(st.noAI) return;
+  const m = missing(st); const btn = $('#copy'); const miss = $('#miss');
+  if(btn) btn.disabled = m.length>0;
+  if(miss) miss.textContent = m.length ? `「${m.map(fieldLabel).join('」「')}」を入れるとコピーできます` : '';
+}
+
+function go(i){ state.current = Math.max(0,Math.min(STEPS.length-1,i)); save(); renderChips(); renderCard(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+let toastTimer;
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),1800); }
+function copyText(text, selectEl){
+  const fallback = ()=>{ if(selectEl){ const r=document.createRange(); r.selectNodeContents(selectEl); const s=getSelection(); s.removeAllRanges(); s.addRange(r); } toast('選んだ文字をコピーしてください'); };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>toast('コピーしました。Geminiに貼って送ろう'), fallback); }
+    else fallback();
+  }catch(e){ fallback(); }
+}
+
+document.addEventListener('click', e=>{
+  const chip = e.target.closest('.chip'); if(chip){ go(+chip.dataset.i); return; }
+  if(e.target.id==='prev') go(state.current-1);
+  if(e.target.id==='next') go(state.current+1);
+  if(e.target.id==='copy'){ copyText(promptText(STEPS[state.current]), $('#prompt')); }
+  if(e.target.id==='copyStop'){ copyText($('#stopText').textContent, $('#stopText')); }
+});
+document.addEventListener('input', e=>{
+  const k = e.target.dataset && e.target.dataset.key; if(!k) return;
+  state.values[k] = e.target.value; save();
+  const p = $('#prompt'); if(p) p.innerHTML = promptHTML(STEPS[state.current]);
+  updateMiss();
+});
+
+renderChips(); renderCard();
+</script>
